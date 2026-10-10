@@ -1,6 +1,6 @@
 ﻿# CivicSync: three-minute demonstration
 
-Production: https://civicsync-smart-city.vercel.app/ . Use three separate browser profiles already signed in as Citizen, Department Officer and City Administrator. Do not record passwords, tokens, account administration emails or SQL Editor secrets. Recording the final 2-5 minute video and adding it to this repository is **PENDING**.
+Production: https://civicsync-smart-city.vercel.app/ . Use three separate browser profiles already signed in as Citizen, Department Officer and City Administrator. Do not record passwords, tokens, account administration emails or SQL Editor secrets. The completed captioned recording is [demo/CivicSync_Hackathon_Demo.mp4](demo/CivicSync_Hackathon_Demo.mp4), verified at 179.98 seconds and 1920x1080. The outline below is a guide; the final capture follows the requested administrator, conflict, officer and citizen sequence.
 
 Before recording, apply every migration listed in AUTH_SETUP.md, verify all three live roles, and prepare an explicitly illustrative road shared by two departments. The administrator can add a road through Accounts; mark its identity verified for deterministic segment matching and mark the geometry illustrative. Use the same stored segment for both projects. Set the coordination window to 7 days. Do not imply that sample geometry is official municipal GIS data.
 

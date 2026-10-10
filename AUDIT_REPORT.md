@@ -7,6 +7,8 @@ PASS means an executed check succeeded. FAIL means a check reproduced a problem.
 
 ## Release assessment
 
+Recording follow-up (2026-10-10): the final [captioned live MP4](demo/CivicSync_Hackathon_Demo.mp4) is complete (179.98 seconds, 1920x1080). Separate real Administrator, Department Officer and Citizen sign-ins and sign-outs passed. Live illustrative project creation, cross-session reads, officer updates, conflict detection, coordination notes, citizen complaint submission and staff status updates were exercised. Recording-created projects were deleted afterward. This follow-up does not establish migration 003 deployment or replace the remaining production authorization-denial tests. The assessment below records the earlier audit state; see SUBMISSION_CHECKLIST.md for current status.
+
 **Not yet fully verified for submission.** The public production login works and local release checks pass. Apply migration 003 and verify the actual Citizen, Officer and Administrator sessions before claiming complete production readiness. The required 2-5 minute demonstration video is pending. The user's report that all three accounts work is not substituted for audit evidence.
 
 ## Executed checks

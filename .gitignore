@@ -31,3 +31,7 @@ secrets.*
 
 # Private account setup overrides
 supabase/setup/*.local.sql
+
+# Video tooling and private recording intermediates
+.demo-tools/
+demo/.work/
