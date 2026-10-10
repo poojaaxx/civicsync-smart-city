@@ -1,6 +1,6 @@
 ﻿# Enable real CivicSync accounts with Supabase
 
-The client integration is implemented. Your local project URL and public key can remain as configured. Hosted data access requires both migrations below; email delivery and multi-account behavior must then be verified in your tenant. No credentials belong in this document.
+The client integration is implemented. Your local project URL and public key can remain as configured. Hosted data access requires the migrations below; email delivery and multi-account behavior must then be verified in your tenant. No credentials belong in this document.
 
 ## 1. Create your Supabase project
 
@@ -14,10 +14,11 @@ Open the project's **SQL Editor** and run each complete file in this order, as s
 
 1. `supabase/migrations/202610100001_authenticated_workspace.sql`
 2. `supabase/migrations/202610100002_relational_catalog.sql`
+3. `supabase/migrations/202610100003_coordination_authorization.sql`
 
-Run each once. If migration 001 was already applied, run only 002. Migration 001 creates profiles, projects, complaints, coordination, settings, signup triggers, row-level read policies and validated write functions inside a transaction. It also creates citizen profiles for any users already registered. This is an initial migration for a new CivicSync database; do not rerun it blindly against an already initialized schema.
+Run each once. If 001 and 002 were already applied, run only 003. Migration 003 fixes an officer coordination-record authorization issue by checking the existing record as well as the submitted replacement; it changes no tables or records. Migration 001 creates profiles, projects, complaints, coordination, settings, signup triggers, row-level read policies and validated write functions inside a transaction. It also creates citizen profiles for any users already registered. This is an initial migration for a new CivicSync database; do not rerun it blindly against an already initialized schema.
 
-Migration 002 adds departments, road segments, project updates and coordination-project relationships, catalog administration, optional sample import, and an RLS-protected workspace snapshot. It preserves existing projects, reports and coordination records. Legacy road IDs are retained as unverified illustrative geometry; confirm their coordinates before operational use. Both scripts are transactional: a failure rolls back that script. Do not drop tables or rerun successful migrations to fix a later failure.
+Migration 002 adds departments, road segments, project updates and coordination-project relationships, catalog administration, optional sample import, and an RLS-protected workspace snapshot. It preserves existing projects, reports and coordination records. Legacy road IDs are retained as unverified illustrative geometry; confirm their coordinates before operational use. All scripts are transactional: a failure rolls back that script. Do not drop tables or rerun successful migrations to fix a later failure.
 
 After running them, verify in SQL Editor:
 
@@ -48,7 +49,7 @@ Supabase's built-in mail service has development restrictions and rate limits. C
 
 ## 4. Configure the local application
 
-Copy `.env.example` to `.env.local` and fill it locally:
+Create `.env.local` in the project root and fill it locally:
 
 ```dotenv
 VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
@@ -126,7 +127,7 @@ Set the same two public environment variables in Vercel's project settings, then
 
 ## Verification performed without your credentials
 
-Local tests execute both actual migrations in embedded PostgreSQL (PGlite), verify RLS, role escalation denial, report privacy, department restrictions, stale-write handling, rollback, server validation, relational links, adapter CRUD, stored-road conflict detection, optional sample import and public timeline notes. UI tests mock the auth provider to verify requests and errors. Browser tests exercise unconfigured login and the explicit local demo.
+Local tests execute the actual migrations in embedded PostgreSQL (PGlite), verify RLS, role escalation denial, report privacy, department restrictions, stale-write handling, rollback, server validation, relational links, adapter CRUD, stored-road conflict detection, optional sample import and public timeline notes. UI tests mock the auth provider to verify requests and errors. Browser tests exercise unconfigured login and the explicit local demo.
 
 These tests **do not claim that a live Supabase tenant, SMTP provider, confirmation email, or reset email has been configured or tested**. Complete the live two-account checklist above after setup.
 
@@ -134,7 +135,7 @@ Implementation references: [Supabase React authentication](https://supabase.com/
 
 ## Three-account role setup and verification
 
-This procedure uses the existing authorization architecture. It does not create accounts, change passwords, recreate tables or remove records. Run migrations 001 and 002 first. No additional migration is needed for these roles.
+This procedure uses the existing authorization architecture. It does not create accounts, change passwords, recreate tables or remove records. Run migrations 001, 002 and 003 first. The setup script assigns roles without changing the authorization architecture.
 
 ### Register and identify your accounts
 

@@ -1,4 +1,5 @@
-﻿import { Link } from "react-router-dom";
+import { monthlyActivity } from "./metrics";
+import { Link } from "react-router-dom";
 import {
   Activity,
   ArrowRight,
@@ -32,11 +33,7 @@ import { statuses } from "./model";
 export function Dashboard() {
   const { data, role, isDemo } = useStore();
   const departments = data.departments.map((d) => d.name);
-  const monthKeys = [
-    ...new Set(
-      data.projects.flatMap((p) => [p.start.slice(0, 7), p.end.slice(0, 7)]),
-    ),
-  ].sort();
+  const monthly = monthlyActivity(data.projects);
   const conflicts = detectConflicts(data.projects, data.roads, data.windowDays);
   const cleared = Object.keys(data.coordination).filter(
     (id) => !conflicts.some((c) => c.id === id),
@@ -272,20 +269,10 @@ export function Dashboard() {
         <section className="card">
           <div className="card-heading">
             <h2>Monthly project activity</h2>
-            <small>Scheduled activity by start/end month</small>
+            <small>Scheduled activity in every month</small>
           </div>
           <ResponsiveContainer width="100%" height={190}>
-            <AreaChart
-              data={monthKeys.map((month) => {
-                return {
-                  month,
-                  projects: data.projects.filter(
-                    (p) => p.start <= `${month}-31` && p.end >= `${month}-01`,
-                  ).length,
-                };
-              })}
-              margin={{ left: -25, right: 25 }}
-            >
+            <AreaChart data={monthly} margin={{ left: -25, right: 25 }}>
               <XAxis dataKey="month" />
               <YAxis allowDecimals={false} />
               <Tooltip />

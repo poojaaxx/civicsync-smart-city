@@ -175,6 +175,7 @@ export function ProjectForm() {
     departments = data.departments.map((d) => d.name);
   const navigate = useNavigate();
   const existing = data.projects.find((p) => p.id === id);
+  const [original] = useState(() => existing);
   const [project, setProject] = useState<Project>(() =>
     existing
       ? { ...existing }
@@ -228,6 +229,10 @@ export function ProjectForm() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const issues = validateProject(project);
+    if (original && JSON.stringify(original) !== JSON.stringify(existing))
+      issues.push(
+        "This project changed while you were editing. Reopen the editor to load the latest version before saving.",
+      );
     setErrors(issues);
     if (issues.length) return;
     const changes = existing

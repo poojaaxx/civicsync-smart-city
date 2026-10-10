@@ -33,7 +33,14 @@ export function detectConflicts(
 ): Conflict[] {
   const result: Conflict[] = [];
   const window = Math.max(0, Number.isFinite(windowDays) ? windowDays : 7);
+  // Database IDs are unique; defensive deduplication also protects imported/demo data.
+  const seen = new Set<string>();
   const valid = projects
+    .filter((p) => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    })
     .filter(
       (p) =>
         p.status !== "Completed" &&

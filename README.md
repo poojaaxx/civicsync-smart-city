@@ -35,7 +35,7 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. For real access, copy `.env.example` to ignored `.env.local`, enter your Supabase URL and **public publishable key**, run both SQL migrations, configure auth URLs, and restart Vite. See [AUTH_SETUP.md](AUTH_SETUP.md) for the exact steps, including bootstrapping your first administrator.
+Open http://127.0.0.1:5173. For real access, create an ignored `.env.local` using the configuration in AUTH_SETUP.md, enter your Supabase URL and **public publishable key**, run all SQL migrations, configure auth URLs, and restart Vite. See [AUTH_SETUP.md](AUTH_SETUP.md) for the exact steps, including bootstrapping your first administrator.
 
 Never use service-role/secret keys or database passwords in frontend variables. A configuration guard rejects privileged keys before Vite builds a bundle. Passwords are handled by Supabase Auth, not stored by CivicSync.
 
@@ -111,7 +111,7 @@ Tests cover conflict edge cases, persistence, citizen interactions, auth request
 
 Vercel: import the existing GitHub repository; framework Vite; build `npm run build`; output `dist`; Node 22.12+ / 24. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in Vercel before rebuilding. `vercel.json` supports direct SPA route loads, including `/auth/reset`.
 
-Configure Supabase redirect URLs for the deployed origin, verify email confirmation/reset and the two-account permission scenarios, then record the public URL. No hosted deployment or live Supabase connection is claimed by this repository alone.
+Configure Supabase redirect URLs for the deployed origin, verify email confirmation/reset and the two-account permission scenarios, then record the public URL. The production login is available at https://civicsync-smart-city.vercel.app/. See AUDIT_REPORT.md for checks actually performed and authenticated workflows still requiring verification.
 
 ## Limits and next steps
 
@@ -132,3 +132,7 @@ This implementation uses AI coding assistance. Review the event's actual eligibi
 React, Vite, TypeScript, React Router, Lucide, Recharts, Leaflet, React Leaflet, Supabase JS, Vitest, Testing Library, PGlite, Playwright, ESLint and Prettier. Review installed package licenses before redistribution. [OpenStreetMap attribution](https://www.openstreetmap.org/copyright) is displayed on the map. Optional Google Fonts use system-font fallbacks. Respect map-tile and hosted-service policies and account limits.
 
 References: [Vite](https://vite.dev/guide/), [React Leaflet](https://react-leaflet.js.org/), [Supabase authentication](https://supabase.com/docs/guides/auth/quickstarts/react), [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).
+
+## Final audit
+
+See [AUDIT_REPORT.md](AUDIT_REPORT.md) for PASS/FAIL/UNVERIFIED/PENDING evidence and the required additive authorization migration 003. The read-only production smoke check can be repeated with `node scripts/audit-production.mjs`; it does not sign in or create production records.

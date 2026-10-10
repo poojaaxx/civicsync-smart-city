@@ -66,6 +66,12 @@ beforeAll(async () => {
       "utf8",
     ),
   );
+  await db.exec(
+    readFileSync(
+      "supabase/migrations/202610100003_coordination_authorization.sql",
+      "utf8",
+    ),
+  );
   for (const road of seedDatabase().roads)
     await db.query("insert into public.road_segments values($1,$2,$3,$4,$5)", [
       road.id,
@@ -766,4 +772,39 @@ describe("exact trusted test-account setup SQL", () => {
       );
     }
   });
+});
+
+it("prevents officers from taking over another department coordination record by replacing its project IDs", async () => {
+  const outside = {
+    ...project,
+    id: "EL-OUTSIDE",
+    department: "Electricity Department",
+  };
+  await commit([
+    { kind: "projects", id: outside.id, before: null, after: outside },
+  ]);
+  const current = {
+    id: "CF:outside",
+    status: "Detected",
+    notes: [],
+    conflict: { projectIds: [outside.id] },
+  };
+  await commit([
+    { kind: "coordination", id: current.id, before: null, after: current },
+  ]);
+  await actor(officer);
+  await expect(
+    commit([
+      {
+        kind: "coordination",
+        id: current.id,
+        before: current,
+        after: {
+          ...current,
+          status: "Acknowledged",
+          conflict: { projectIds: [project.id] },
+        },
+      },
+    ]),
+  ).rejects.toThrow("outside assigned department");
 });

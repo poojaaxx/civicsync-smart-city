@@ -130,3 +130,13 @@ describe("explainable coordination engine", () => {
     );
   });
 });
+
+it("does not inflate conflict counts when a project identifier is repeated", () => {
+  expect(detectConflicts([base, base, other], roads)).toHaveLength(1);
+});
+it("handles month-boundary overlaps and simultaneous conflicts", () => {
+  const a = { ...base, start: "2026-10-30", end: "2026-11-02" };
+  const b = { ...other, start: "2026-11-01", end: "2026-11-04" };
+  const c = { ...b, id: "third", department: "Municipal Corporation" };
+  expect(detectConflicts([a, b, c], roads)).toHaveLength(3);
+});

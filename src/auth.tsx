@@ -153,7 +153,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
         Verifying your account…
       </div>
     );
-  if (!session || !profile || recovery)
+  if (!session || !profile || profile.id !== session.user.id || recovery)
     return (
       <AuthScreen
         error={error}

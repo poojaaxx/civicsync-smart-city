@@ -11,7 +11,15 @@ export function ReportCard({
   report: Complaint;
   admin?: boolean;
 }) {
-  const { data, role, commit, saving } = useStore();
+  const { data, role, commit, saving, isDemo, department } = useStore();
+  const canManage =
+    admin &&
+    role !== "Citizen" &&
+    (isDemo ||
+      role === "City Administrator" ||
+      data.projects.some(
+        (p) => p.id === report.projectId && p.department === department,
+      ));
   return (
     <article className="card report-card">
       <div className="card-heading">
@@ -57,7 +65,7 @@ export function ReportCard({
           </small>
         ))}
       </div>
-      {admin && role !== "Citizen" && (
+      {canManage && (
         <label>
           Update report status
           <select
