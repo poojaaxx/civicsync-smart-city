@@ -28,3 +28,6 @@ secrets.*
 .ssh/
 .vercel/
 .netlify/
+
+# Private account setup overrides
+supabase/setup/*.local.sql
