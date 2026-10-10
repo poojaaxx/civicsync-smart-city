@@ -2,6 +2,8 @@
 
 ## Before recording
 
+This script describes the explicit **local demo**. On the login screen click **Explore local demo** when Supabase is unconfigured. With Supabase configured, use separate real citizen/officer/admin accounts instead of the role switcher, and import illustrative projects from Accounts if needed. Follow AUTH_SETUP.md first.
+
 - Run `npm ci` and `npm run dev`; open http://127.0.0.1:5173.
 - Use a fresh browser profile or remove only the `civicsync-demo-v1` storage key and reload. Do not reset records you need without exporting first.
 - Confirm City Administrator demo role and a 7-day window. Expect 10 projects and 3 seeded alerts.

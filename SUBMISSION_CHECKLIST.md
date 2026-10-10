@@ -10,8 +10,8 @@
 - [x] Citizen reporting, photograph persistence, tracking references and sequential status updates.
 - [x] Dashboard metrics and charts derived from data.
 - [x] Local data survives reload; storage failures preserve prior data.
-- [x] TypeScript check, ESLint, 22 Vitest/Testing Library tests and production build executed successfully.
-- [x] Four Playwright browser scenarios passed in Microsoft Edge: full coordination/report workflow; real map/refresh/mobile; validation/role restrictions/photo/deletion; forced tile-failure fallback.
+- [x] TypeScript check, ESLint, 62 unit/integration tests (including PostgreSQL permissions) and production build executed successfully.
+- [x] Five Playwright browser scenarios passed in Microsoft Edge: account entry and explicit demo isolation; full coordination/report workflow; real map/refresh/mobile; validation/role restrictions/photo/deletion; forced tile-failure fallback.
 - [x] Desktop and mobile screenshots visually inspected; table overflow corrected.
 - [x] No paid API or secrets required.
 - [x] Vercel build configuration and SPA rewrites included.
@@ -21,8 +21,8 @@
 
 - [ ] Add actual team names, responsibilities, contact information, and repository license decision.
 - [ ] Review the official event eligibility and AI-assistance disclosure requirements. The app is not an organizer-endorsed product.
-- [ ] Create/push a GitHub repository. Do not include dependencies, caches, private data, or secrets.
-- [ ] Authenticate to Vercel and import the repository. Framework: Vite; build: `npm run build`; output: `dist`; no environment variables needed.
+- [ ] Commit and push the latest integration to the existing GitHub repository. Do not include dependencies, caches, private data, or secrets.
+- [ ] Authenticate to Vercel and import the repository. Framework: Vite; build: `npm run build`; output: `dist`; set the two public Supabase variables for real accounts.
 - [ ] Verify the public URL and a direct `/coordination` refresh. No public deployment URL has been verified in this workspace.
 - [ ] Repeat the walkthrough on the deployed origin; its browser storage is separate from localhost.
 - [ ] Record and review the 2–5 minute narrated demonstration using DEMO_SCRIPT.md. No finished narrated video is included.
@@ -38,7 +38,7 @@
 
 ## Production work beyond this demo
 
-- [ ] Authenticated shared backend, server authorization/RLS and assignment-based permissions.
+- [x] Authenticated backend integration and assignment-based server authorization implemented; owner activation remains required.
 - [ ] Authoritative road/GIS data and field validation.
 - [ ] Private attachment storage, retention policy, accessibility audit and operational monitoring.
 - [ ] Capacity planning and indexed conflict computation for large datasets.

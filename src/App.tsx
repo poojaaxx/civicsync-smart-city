@@ -28,6 +28,8 @@ import {
   X,
   ArrowUpRight,
 } from "lucide-react";
+import { AuthGate, useIdentity } from "./auth";
+import { Accounts } from "./Accounts";
 import { Provider, useStore } from "./store";
 const Dashboard = lazy(() =>
   import("./Dashboard").then((module) => ({ default: module.Dashboard })),
@@ -37,7 +39,6 @@ import { CoordinationCenter } from "./Coordination";
 import { CitizenPortal, Reports } from "./Citizen";
 import type { Role } from "./model";
 import { detectConflicts } from "./engine";
-import { roads } from "./seed";
 class ErrorBoundary extends Component<
   { children: ReactNode },
   { error: string }
@@ -71,12 +72,19 @@ const navigation = [
   ["/coordination", GitMerge, "Coordination"],
   ["/reports", MessageSquare, "Citizen reports"],
   ["/citizen", Users, "Citizen portal"],
+  ["/accounts", ShieldCheck, "Accounts"],
 ] as const;
 function Shell() {
-  const { data, role, setRole, error, clearError } = useStore();
+  const { data, role, setRole, error, clearError, isDemo, saving, refresh } =
+    useStore();
+  const { user, signOut } = useIdentity();
   const [open, setOpen] = useState(false);
   const location = useLocation();
-  const count = detectConflicts(data.projects, roads, data.windowDays).length;
+  const count = detectConflicts(
+    data.projects,
+    data.roads,
+    data.windowDays,
+  ).length;
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main">
@@ -101,18 +109,24 @@ function Shell() {
         </div>
         <div className="nav-label">WORKSPACE</div>
         <nav>
-          {navigation.map(([path, Icon, label]) => (
-            <NavLink
-              key={path}
-              end={path === "/"}
-              to={path}
-              onClick={() => setOpen(false)}
-            >
-              <Icon size={19} />
-              <span>{label}</span>
-              {path === "/coordination" && count > 0 && <b>{count}</b>}
-            </NavLink>
-          ))}
+          {navigation
+            .filter(
+              ([path]) =>
+                path !== "/accounts" ||
+                (!isDemo && role === "City Administrator"),
+            )
+            .map(([path, Icon, label]) => (
+              <NavLink
+                key={path}
+                end={path === "/"}
+                to={path}
+                onClick={() => setOpen(false)}
+              >
+                <Icon size={19} />
+                <span>{label}</span>
+                {path === "/coordination" && count > 0 && <b>{count}</b>}
+              </NavLink>
+            ))}
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-card">
@@ -129,7 +143,8 @@ function Shell() {
           </div>
           <div className="sidebar-footer">
             <i className="live-dot" />
-            Local demo storage<small>BITS AND BYTES 2026</small>
+            {isDemo ? "Local demo storage" : "Authenticated shared workspace"}
+            <small>BITS AND BYTES 2026</small>
           </div>
         </div>
       </aside>
@@ -162,24 +177,46 @@ function Shell() {
             </span>
           </div>
           <div className="topbar-right">
-            <span className="demo-pill">
-              <i />
-              DEMO ACCESS
-            </span>
-            <label className="role-select">
-              <span className="sr-only">Demo role</span>
-              <select
-                aria-label="Demo role"
-                value={role}
-                onChange={(e) => setRole(e.target.value as Role)}
+            {isDemo ? (
+              <>
+                <span className="demo-pill">
+                  <i />
+                  DEMO ACCESS
+                </span>
+                <label className="role-select">
+                  <span className="sr-only">Demo role</span>
+                  <select
+                    aria-label="Demo role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as Role)}
+                  >
+                    {[
+                      "City Administrator",
+                      "Department Officer",
+                      "Citizen",
+                    ].map((r) => (
+                      <option key={r}>{r}</option>
+                    ))}
+                  </select>
+                </label>
+              </>
+            ) : (
+              <span className="account-identity" title={user?.email}>
+                {role}
+              </span>
+            )}
+            {!isDemo && (
+              <button
+                className="text-button"
+                disabled={saving}
+                onClick={() => void refresh()}
               >
-                {["City Administrator", "Department Officer", "Citizen"].map(
-                  (r) => (
-                    <option key={r}>{r}</option>
-                  ),
-                )}
-              </select>
-            </label>
+                Refresh data
+              </button>
+            )}
+            <button className="text-button" onClick={() => void signOut()}>
+              {isDemo ? "Exit demo" : "Sign out"}
+            </button>
             <span className="avatar">
               {role === "Citizen"
                 ? "CT"
@@ -190,10 +227,16 @@ function Shell() {
           </div>
         </header>
         <div className="demo-notice">
-          Illustrative projects & demo access. Data is saved only in this
-          browser; no municipal connection.
+          {isDemo
+            ? "Illustrative projects & demo access. Data is saved only in this browser; no municipal connection."
+            : "Shared account workspace. Reports are visible to their owner and authorized staff. No automatic municipal submission."}
         </div>
         <main id="main" tabIndex={-1}>
+          {saving && (
+            <div className="notice" role="status">
+              Saving changes...
+            </div>
+          )}
           {error && (
             <div className="notice error" role="alert">
               {error}
@@ -222,6 +265,7 @@ function Shell() {
               <Route path="/coordination" element={<CoordinationCenter />} />
               <Route path="/reports" element={<Reports />} />
               <Route path="/citizen" element={<CitizenPortal />} />
+              <Route path="/accounts" element={<Accounts />} />
               <Route
                 path="*"
                 element={
@@ -245,11 +289,13 @@ function Shell() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <Provider>
-        <BrowserRouter>
-          <Shell />
-        </BrowserRouter>
-      </Provider>
+      <AuthGate>
+        <Provider>
+          <BrowserRouter>
+            <Shell />
+          </BrowserRouter>
+        </Provider>
+      </AuthGate>
     </ErrorBoundary>
   );
 }

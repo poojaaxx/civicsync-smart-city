@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { GitMerge, ArrowRight, CheckCircle2 } from "lucide-react";
 import { useStore } from "./store";
 import { detectConflicts } from "./engine";
-import { roads } from "./seed";
 import { Badge, Empty, PageHeading } from "./ui";
 import type { Conflict, Coordination } from "./model";
 function ConflictCard({
@@ -13,13 +12,13 @@ function ConflictCard({
   conflict: Conflict;
   cleared?: boolean;
 }) {
-  const { data, role, commit } = useStore();
+  const { data, role, commit, isDemo, department, saving } = useStore();
   const [note, setNote] = useState("");
   const record = data.coordination[conflict.id];
   const projects = conflict.projectIds.map((id) =>
     data.projects.find((p) => p.id === id),
   );
-  const write = (status: Coordination["status"]) => {
+  const write = async (status: Coordination["status"]) => {
     if (role === "Citizen") return;
     const next: Coordination = {
       id: conflict.id,
@@ -33,7 +32,7 @@ function ConflictCard({
       ],
     };
     if (
-      commit({
+      await commit({
         ...data,
         coordination: { ...data.coordination, [conflict.id]: next },
       })
@@ -105,45 +104,50 @@ function ConflictCard({
           </small>
         </div>
       ))}
-      {!cleared && role !== "Citizen" && (
-        <div className="coord-actions">
-          <label>
-            Coordination note
-            <textarea
-              aria-label={`Coordination note for ${conflict.id}`}
-              maxLength={1500}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Record the agreed next step…"
-            />
-          </label>
-          <div className="actions">
-            <button
-              className="button secondary"
-              onClick={() => write("Under review")}
-            >
-              Mark under review / save note
-            </button>
-            <button
-              className="button secondary"
-              onClick={() => write("Acknowledged")}
-            >
-              Mark manually resolved
-            </button>
+      {!cleared &&
+        role !== "Citizen" &&
+        (isDemo ||
+          role === "City Administrator" ||
+          projects.some((p) => p?.department === department)) && (
+          <div className="coord-actions">
+            <label>
+              Coordination note
+              <textarea
+                aria-label={`Coordination note for ${conflict.id}`}
+                maxLength={1500}
+                value={note}
+                onChange={async (e) => setNote(e.target.value)}
+                placeholder="Record the agreed next step…"
+              />
+            </label>
+            <div className="actions">
+              <button
+                className="button secondary"
+                disabled={saving}
+                onClick={() => write("Under review")}
+              >
+                Mark under review / save note
+              </button>
+              <button
+                className="button secondary"
+                onClick={() => write("Acknowledged")}
+              >
+                Mark manually resolved
+              </button>
+            </div>
+            <small>
+              Manual resolution acknowledges the alert. Only a rule
+              recalculation can clear it.
+            </small>
           </div>
-          <small>
-            Manual resolution acknowledges the alert. Only a rule recalculation
-            can clear it.
-          </small>
-        </div>
-      )}
+        )}
     </article>
   );
 }
 export function CoordinationCenter() {
-  const { data, role, commit } = useStore();
+  const { data, role, commit, isDemo, saving } = useStore();
   const [tab, setTab] = useState("Active");
-  const conflicts = detectConflicts(data.projects, roads, data.windowDays);
+  const conflicts = detectConflicts(data.projects, data.roads, data.windowDays);
   const cleared = Object.values(data.coordination).filter(
     (r) => !conflicts.some((c) => c.id === r.id),
   );
@@ -169,7 +173,11 @@ export function CoordinationCenter() {
           Coordination window
           <select
             aria-label="Coordination window"
-            disabled={role === "Citizen"}
+            disabled={
+              saving ||
+              role === "Citizen" ||
+              (!isDemo && role !== "City Administrator")
+            }
             value={data.windowDays}
             onChange={(e) =>
               commit({ ...data, windowDays: Number(e.target.value) })

@@ -11,7 +11,7 @@ export function ReportCard({
   report: Complaint;
   admin?: boolean;
 }) {
-  const { data, role, commit } = useStore();
+  const { data, role, commit, saving } = useStore();
   return (
     <article className="card report-card">
       <div className="card-heading">
@@ -62,10 +62,11 @@ export function ReportCard({
           Update report status
           <select
             aria-label={`Status for ${report.id}`}
+            disabled={saving}
             value={report.status}
-            onChange={(e) => {
+            onChange={async (e) => {
               const status = e.target.value as Complaint["status"];
-              commit({
+              await commit({
                 ...data,
                 complaints: data.complaints.map((c) =>
                   c.id === report.id
@@ -100,7 +101,7 @@ export function ReportCard({
   );
 }
 export function CitizenPortal() {
-  const { data, commit } = useStore();
+  const { data, commit, isDemo, saving } = useStore();
   const { filtered, filters } = useFilters(data.projects);
   const [tab, setTab] = useState("Explore works");
   const [reference, setReference] = useState("");
@@ -111,10 +112,11 @@ export function CitizenPortal() {
   const [loading, setLoading] = useState(false);
   const [nearby, setNearby] = useState<[number, number] | null>(null);
   const report = data.complaints.find((c) => c.id === lookup);
-  const submit = (e: FormEvent<HTMLFormElement>) => {
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (loading) return;
-    const form = new FormData(e.currentTarget);
+    const formElement = e.currentTarget;
+    const form = new FormData(formElement);
     const description = String(form.get("description") || "").trim(),
       location = String(form.get("location") || "").trim();
     if (description.length < 10 || location.length < 3) {
@@ -126,7 +128,7 @@ export function CitizenPortal() {
     const at = new Date().toISOString(),
       id = `REP-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
     if (
-      commit({
+      await commit({
         ...data,
         complaints: [
           ...data.complaints,
@@ -149,7 +151,7 @@ export function CitizenPortal() {
       setLookup(id);
       setPhoto(undefined);
       setError("");
-      e.currentTarget.reset();
+      formElement.reset();
     }
   };
   const nearbyProjects = nearby
@@ -180,8 +182,9 @@ export function CitizenPortal() {
         </span>
       </div>
       <div className="notice">
-        Reports stay in this browser. They are not sent to a municipality. All
-        projects are fictional.
+        {isDemo
+          ? "Reports stay in this browser. They are not sent to a municipality. All projects are fictional."
+          : "Your reports are saved to your account and visible to authorized staff. They are not automatically submitted to a municipality."}
       </div>
       <div className="tabs">
         {["Explore works", "Report an issue", "Track a report"].map((t) => (
@@ -336,7 +339,7 @@ export function CitizenPortal() {
               alt="Selected report attachment preview"
             />
           )}
-          <button className="button" disabled={loading} type="submit">
+          <button className="button" disabled={loading || saving} type="submit">
             <Send size={16} />
             {loading ? "Reading photograph…" : "Submit demo report"}
           </button>

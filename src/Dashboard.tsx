@@ -26,13 +26,18 @@ import {
 } from "recharts";
 import { useStore } from "./store";
 import { detectConflicts } from "./engine";
-import { roads } from "./seed";
 import { CityMap, colors } from "./CityMap";
 import { Badge, PageHeading, ProjectTable, download, Empty } from "./ui";
-import { departments, statuses } from "./model";
+import { statuses } from "./model";
 export function Dashboard() {
-  const { data, role } = useStore();
-  const conflicts = detectConflicts(data.projects, roads, data.windowDays);
+  const { data, role, isDemo } = useStore();
+  const departments = data.departments.map((d) => d.name);
+  const monthKeys = [
+    ...new Set(
+      data.projects.flatMap((p) => [p.start.slice(0, 7), p.end.slice(0, 7)]),
+    ),
+  ].sort();
+  const conflicts = detectConflicts(data.projects, data.roads, data.windowDays);
   const cleared = Object.keys(data.coordination).filter(
     (id) => !conflicts.some((c) => c.id === id),
   ).length;
@@ -96,7 +101,8 @@ export function Dashboard() {
           Coimbatore, Tamil Nadu
         </span>
         <span>
-          Illustrative city portfolio <b>•</b> October–December 2026
+          {isDemo ? "Illustrative local demo" : "Shared Supabase portfolio"} -{" "}
+          {data.projects.filter((p) => p.isIllustrative).length} sample projects
         </span>
       </div>
       <div className="kpi-grid">
@@ -266,14 +272,13 @@ export function Dashboard() {
         <section className="card">
           <div className="card-heading">
             <h2>Monthly project activity</h2>
-            <small>Scheduled work, including historical completions</small>
+            <small>Scheduled activity by start/end month</small>
           </div>
           <ResponsiveContainer width="100%" height={190}>
             <AreaChart
-              data={Array.from({ length: 5 }, (_, i) => {
-                const month = `2026-${String(i + 8).padStart(2, "0")}`;
+              data={monthKeys.map((month) => {
                 return {
-                  month: ["Aug", "Sep", "Oct", "Nov", "Dec"][i],
+                  month,
                   projects: data.projects.filter(
                     (p) => p.start <= `${month}-31` && p.end >= `${month}-01`,
                   ).length,

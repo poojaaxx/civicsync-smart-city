@@ -1,4 +1,8 @@
 ﻿import { test, expect } from "@playwright/test";
+test.beforeEach(async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore local demo" }).click();
+});
 test("project creation, automatic conflict, schedule resolution, persistent citizen lifecycle", async ({
   page,
 }) => {

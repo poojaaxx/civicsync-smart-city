@@ -35,13 +35,19 @@ export interface ProjectUpdate {
   department: string;
   description: string;
 }
+export interface Department {
+  id: string;
+  name: string;
+}
 export interface RoadSegment {
+  isIllustrative?: boolean;
   id: string;
   name: string;
   verified: boolean;
   coordinates: [number, number][];
 }
 export interface Project {
+  isIllustrative?: boolean;
   id: string;
   name: string;
   department: string;
@@ -89,6 +95,8 @@ export interface Coordination {
   notes: { text: string; at: string; author: string }[];
 }
 export interface Database {
+  departments: Department[];
+  roads: RoadSegment[];
   version: 1;
   projects: Project[];
   complaints: Complaint[];

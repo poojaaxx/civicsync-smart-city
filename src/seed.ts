@@ -4,6 +4,7 @@ export const roads: RoadSegment[] = [
     id: "av-01",
     name: "Avinashi Road · Peelamedu",
     verified: true,
+    isIllustrative: true,
     coordinates: [
       [11.025, 77.005],
       [11.027, 77.012],
@@ -13,6 +14,7 @@ export const roads: RoadSegment[] = [
     id: "tr-01",
     name: "Trichy Road · Ramanathapuram",
     verified: true,
+    isIllustrative: true,
     coordinates: [
       [10.994, 76.995],
       [10.991, 77.003],
@@ -22,6 +24,7 @@ export const roads: RoadSegment[] = [
     id: "db-01",
     name: "D.B. Road · R.S. Puram",
     verified: true,
+    isIllustrative: true,
     coordinates: [
       [11.008, 76.95],
       [11.014, 76.95],
@@ -31,6 +34,7 @@ export const roads: RoadSegment[] = [
     id: "mt-01",
     name: "Mettupalayam Road · Saibaba Colony",
     verified: true,
+    isIllustrative: true,
     coordinates: [
       [11.04, 76.95],
       [11.046, 76.947],
@@ -40,6 +44,7 @@ export const roads: RoadSegment[] = [
     id: "ra-01",
     name: "Race Course Road",
     verified: true,
+    isIllustrative: true,
     coordinates: [
       [10.999, 76.977],
       [11.003, 76.981],
@@ -49,6 +54,7 @@ export const roads: RoadSegment[] = [
     id: "sa-01",
     name: "Sathy Road · Ganapathy",
     verified: true,
+    isIllustrative: true,
     coordinates: [
       [11.041, 76.986],
       [11.048, 76.99],
@@ -170,6 +176,7 @@ export function seedDatabase(): Database {
   ] as const;
   const projects: Project[] = specs.map((s, i) => ({
     id: `CS-${String(i + 1).padStart(3, "0")}`,
+    isIllustrative: true,
     name: s[0],
     roadId: roads[s[1]].id,
     roadName: roads[s[1]].name,
@@ -217,6 +224,13 @@ export function seedDatabase(): Database {
   }));
   return {
     version: 1,
+    departments: [
+      { id: "water", name: "Water Department" },
+      { id: "electricity", name: "Electricity Department" },
+      { id: "roads", name: "Roads & Highways" },
+      { id: "municipal", name: "Municipal Corporation" },
+    ],
+    roads,
     projects,
     windowDays: 7,
     coordination: {},

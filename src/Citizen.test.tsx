@@ -5,7 +5,7 @@ import { Provider } from "./store";
 import { CitizenPortal, Reports } from "./Citizen";
 beforeEach(() => localStorage.clear());
 afterEach(cleanup);
-it("submits a report, tracks it, and exposes the status to administrators", () => {
+it("submits a report, tracks it, and exposes the status to administrators", async () => {
   const view = render(
     <MemoryRouter>
       <Provider>
@@ -21,7 +21,7 @@ it("submits a report, tracks it, and exposes the status to administrators", () =
     target: { value: "An unsafe open trench needs temporary barriers." },
   });
   fireEvent.click(screen.getByRole("button", { name: "Submit demo report" }));
-  expect(screen.getByRole("status")).toHaveTextContent("Report saved");
+  expect(await screen.findByRole("status")).toHaveTextContent("Report saved");
   fireEvent.click(screen.getByRole("button", { name: "Track this report →" }));
   expect(
     screen.getByText("An unsafe open trench needs temporary barriers."),

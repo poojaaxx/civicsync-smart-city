@@ -1,6 +1,7 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   MapContainer,
+  useMap,
   TileLayer,
   CircleMarker,
   Popup,
@@ -8,13 +9,32 @@ import {
 } from "react-leaflet";
 import { Link } from "react-router-dom";
 import type { Project } from "./model";
-import { roads } from "./seed";
+import { useStore } from "./store";
 export const colors: Record<string, string> = {
   Planned: "#7592b6",
   Ongoing: "#2979e8",
   Delayed: "#e7a128",
   Completed: "#19a58f",
 };
+function FitProjects({ projects }: { projects: Project[] }) {
+  const map = useMap();
+  const { data } = useStore();
+  const bounds = JSON.stringify(
+    projects.flatMap((p) => {
+      const road = data.roads.find((r) => r.id === p.roadId);
+      return [
+        ...(road?.coordinates || []),
+        ...(p.lat !== undefined && p.lng !== undefined ? [[p.lat, p.lng]] : []),
+      ];
+    }),
+  );
+  useEffect(() => {
+    const points = JSON.parse(bounds);
+    if (points.length)
+      map.fitBounds(points, { padding: [28, 28], maxZoom: 15 });
+  }, [map, bounds]);
+  return null;
+}
 export function CityMap({
   projects,
   conflicted = [],
@@ -22,6 +42,7 @@ export function CityMap({
   projects: Project[];
   conflicted?: string[];
 }) {
+  const { data } = useStore();
   const [failed, setFailed] = useState(false);
   return (
     <div className="map-wrap">
@@ -37,6 +58,7 @@ export function CityMap({
         scrollWheelZoom={false}
         className="city-map"
       >
+        <FitProjects projects={projects} />
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -46,7 +68,7 @@ export function CityMap({
           const color = conflicted.includes(p.id)
             ? "#ed695f"
             : colors[p.status];
-          const road = roads.find((r) => r.id === p.roadId);
+          const road = data.roads.find((r) => r.id === p.roadId);
           return (
             <span key={p.id}>
               {road && (
@@ -68,6 +90,7 @@ export function CityMap({
                 >
                   <Popup>
                     <strong>{p.name}</strong>
+                    {p.isIllustrative && <small> - Illustrative project</small>}
                     <p>
                       {p.department}
                       <br />

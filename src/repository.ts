@@ -24,7 +24,11 @@ export class LocalRepository implements DataRepository {
       throw new Error(
         "Saved demo data is incompatible or damaged. Export or clear this site’s storage to start again.",
       );
-    return data as Database;
+    return {
+      ...data,
+      departments: data.departments || seedDatabase().departments,
+      roads: data.roads || seedDatabase().roads,
+    } as Database;
   }
   save(data: Database): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));

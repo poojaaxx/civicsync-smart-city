@@ -100,7 +100,9 @@ export function detectConflicts(
         severity,
         distance,
         evidence: sameSegment
-          ? "Matching verified demo road segment"
+          ? roads.find((r) => r.id === a.roadId)?.isIllustrative
+            ? "Matching verified illustrative road segment"
+            : "Matching verified road segment"
           : "Matching road name + distance <=150 m; segment unverified",
         explanation: `${a.name} and ${b.name} ${overlap ? "have inclusive date ranges that overlap" : `are scheduled ${gap} day(s) apart`} on ${a.roadName}.${duplicate ? " Their work types also match; review potential duplication." : ""}${candidate ? " Proximity is not proof of a shared road; verify the segment before acting." : ""}`,
         recommendation: candidate

@@ -1,71 +1,67 @@
 ﻿# CivicSync architecture
 
-## System boundaries
+## Trust boundaries
 
 ```mermaid
 flowchart LR
-  UI[Role-specific React routes] --> Store[Shared React store]
-  Store --> Engine[Pure coordination engine]
-  Store --> Repo[DataRepository interface]
-  Repo --> Local[Versioned browser localStorage]
-  UI --> Map[React Leaflet]
-  Map --> OSM[OpenStreetMap tiles]
-  Future[Future authenticated API + Supabase RLS] -. replaces .-> Repo
+  Login[Email/password account flow] --> Auth[Supabase Auth]
+  UI[Authenticated React routes] --> Store[Async workspace store]
+  Store --> Engine[Pure conflict engine]
+  Store --> Adapter[Cloud adapter: reads and diffs]
+  Adapter --> RLS[PostgreSQL RLS reads]
+  Adapter --> RPC[Authenticated transactional RPC]
+  RPC --> DB[(Shared tables)]
+  RLS --> DB
+  Demo[Explicit unconfigured demo] --> Local[(Browser localStorage)]
 ```
 
-The deployed app is a static SPA. No backend or server authorization exists in this demo. Network access is only necessary for initial hosting, map tiles, and optional fonts. Computation and sample records remain client-side.
+The static SPA uses a public publishable key. Supabase Auth validates passwords and manages sessions. The database is the authorization boundary; frontend role checks only improve the interface. Configured builds never expose the local demo role switcher. Missing configuration opens a setup-aware login screen with disabled account actions.
 
-## Data model
+## Identity
 
-- Project: unique ID, descriptive/accountability fields, department, type, status, dates, progress, excavation flag, road segment, point coordinates, delay reason, embedded project updates.
-- RoadSegment: stable ID, name, verification flag within the fictional dataset, approximate line geometry. Project point coordinates are separately stored and shown as markers.
-- ProjectUpdate: unique ID, UTC timestamp, responsible department, human-readable event. Schedule edits capture old and new dates; status/progress/delay changes append an event.
-- Complaint: generated reference, category, road/location, optional project link, photograph data URL, status, creation timestamp, ordered status events. A deleted linked project leaves a traceable reference rather than deleting the report.
-- Conflict: deterministic pair ID, involved project IDs, primary type, severity, evidence, optional distance, explanation, recommendation. Derived from projects rather than stored as authoritative alerts.
-- Coordination: last conflict snapshot, review/acknowledgment status, timestamped notes attributed to the selected demo role. Save operations snapshot old and new detected pairs so cleared alerts remain inspectable.
-- Database: schema version, projects, complaints, coordination records and configurable window. Departments are a typed catalog. Demo roles are ephemeral UI state; there are no invented user accounts.
+An `auth.users` trigger creates `profiles(id, display_name, role, department)`. It always sets Citizen through the table default and ignores role/department claims in user metadata. Authenticated users can select their own profile; administrators can select profiles. No browser role can directly update profiles. The guarded `assign_civic_role` function authorizes the caller from the database, requires an existing account, validates assignments, and disallows changing one's own role. The first administrator is bootstrapped by the project owner in the SQL Editor after email confirmation.
 
-## Coordination rules
+The client verifies a restored session via `getUser`, loads the profile and responds to sign-out and recovery events. Profile verification also runs when the window regains focus. The provider remounts when user/role/department changes to clear the previous permission scope. Server permissions use current database values, not stale role claims in a token.
 
-Dates are strict YYYY-MM-DD, parsed at UTC midnight to avoid DST issues. Reversed or invalid ranges are skipped. Completed projects are excluded. Sort unique pair traversal by ID; skip pairs with identical IDs.
+## Data
 
-For each pair:
+- `departments` and `road_segments`: shared catalogs; road coordinate arrays, verification and illustrative flags. Administrators add records through a guarded RPC.
+- `project_updates`: append-only server-generated timeline rows linked to projects/departments, maintained transactionally.
+- `coordination_projects`: relational links between persisted conflict snapshots and surviving projects.
+- `projects`: ID, department and optional road foreign keys, illustrative flag, typed project JSON payload, server modification timestamp. Authenticated accounts can browse all projects.
+- `complaints`: reference, server-assigned owner ID, nullable project foreign key, payload and modification timestamp. Citizens see only their own; officers see own reports and those linked to their department's projects; administrators see all.
+- `coordination`: pair ID and review/note/snapshot payload. Readable by staff, writable only by administrators or an involved department officer.
+- `settings`: the single city coordination window; readable by authenticated users, writable only by administrators.
+- `profiles`: trusted role and department assignment.
 
-1. Shared verified segment ID → authoritative match within the demo dataset.
-2. Distinct nonempty segment IDs → no match.
-3. Otherwise, normalized equal road names AND Haversine distance ≤150 m → uncertain location candidate only.
-4. Compute gap = max(startA,startB) − min(endA,endB), in days. Gap ≤0 is inclusive overlap.
-5. Detect overlap, or (0 < gap ≤ window AND both excavate AND different departments), or (gap ≤ window AND matching types).
-6. Emit one stable pair alert with priority: unverified location review, overlap, repeated excavation, duplicate work. Duplicate evidence is additionally explained even when overlap is the primary type.
+Payload models remain in `src/model.ts`. The SQL function validates essential fields rather than trusting TypeScript. Images are bounded data URLs stored with their protected report record. No public storage bucket exposes complaint photographs. Connected mode never uses the built-in sample catalog. `civic_snapshot` is a stable SECURITY INVOKER read that aggregates every authorized table under its RLS policies in one transaction. It assembles project timelines from relational rows and avoids REST per-table row limits. JSONB preserves the existing domain model; triggers synchronize relational keys/history in the same write transaction. Deleting a project removes its timeline and live coordination junctions, while report references and coordination snapshots survive.
 
-Severity:
+## Writes and concurrency
 
-| Evidence / condition                                     | Severity |
-| -------------------------------------------------------- | -------- |
-| Unverified name + distance candidate                     | Low      |
-| Verified overlap, both excavating, different departments | Critical |
-| Verified repeated excavation or matching work types      | High     |
-| Other verified overlapping work                          | Medium   |
+`changesBetween` sends only changed visible records with `before` and `after` payloads. It never submits a global replacement database. `civic_commit` obtains a transaction advisory lock, checks the caller's actual role/department, checks the prior JSONB value, validates the new payload and applies the batch atomically. Stale writes fail rather than overwrite. An error in any operation rolls back the batch.
 
-Recommendations propose coordinated sequencing or moving work outside the window. They do not promise capacity, engineering safety, permit approval, or elimination of all traffic disruption. Two same-department excavations of different types with overlapping schedules are Medium; duplication can elevate them to High.
+Direct table INSERT/UPDATE/DELETE privileges are revoked from browser roles. RPC execution is revoked from anonymous users and PUBLIC. SECURITY DEFINER helpers use an empty search path and explicitly qualified table/function names.
 
-## Mutation flow
+Project creation/editing is staff-only and department-scoped; deletion is administrator-only. Project history is preserved and new events are server-stamped. Report ownership comes from `auth.uid()`, never submitted owner fields. Existing report content is immutable; status may advance exactly one step. Report events and coordination note authors/times are generated server-side.
 
-The editor validates first, then constructs the next immutable state and appends a public event. `commit` detects conflicts on the previous and proposed states, stores conflict snapshots, then writes the entire next database before changing UI state. Storage errors leave the previous state in place and display an alert. Current conflict views always derive fresh results, so acknowledgments cannot hide ongoing clashes. Seed records are returned when the key is absent; the first successful mutation persists them.
+After a successful mutation, the store reloads authorized data. If the write succeeds but refresh fails, the UI says so rather than claiming the write failed. Users can explicitly refresh. No realtime subscription is enabled yet.
 
-Deleting a project requires an administrator role and confirmation. Complaints follow sequential transitions in the UI. Neither control is a security boundary in demo mode. Data loss/corruption does not trigger silent reset; incompatible data fails into an error boundary.
+## Conflict engine
 
-## Production extension
+For every unique project pair: reject invalid/reversed UTC date ranges, completed projects and self-comparisons. Prefer equal verified stored segment IDs. Different nonempty IDs never match through proximity. Otherwise, matching normalized names plus Haversine distance ≤150 m produce only uncertain location-review candidates.
 
-The synchronous repository is a clear replacement boundary, not an implemented Supabase connector. Convert it to async query/mutation operations, introduce loading/retry states, server schema validation, authenticated user/department claims, row-level authorization, database transactions, immutable audit events, and private image storage. Re-run the engine server-side on authoritative records. Cross-device complaint tracking needs an authenticated or narrowly scoped reference lookup endpoint; random references alone are insufficient authorization. Use geospatial indexes and canonical GIS road segments for scale.
+Gap = later start − earlier finish in UTC days; gap ≤0 means inclusive overlap. Match overlap, cross-department repeated excavation within the configured window, or matching work types within the window. Emit one stable pair alert with explanations of additional duplicate evidence.
 
-## UI structure
+Severity: Critical for verified overlapping cross-department excavation; High for repeated excavation or potential duplicate work; Medium for other verified overlaps; Low for uncertain locations. Recommendations support planning, not engineering approval.
 
-- App: error boundary, role switcher, navigation, router, responsive shell.
-- Dashboard: lazy-loaded analytics; all metrics derive from stored data.
-- Projects: searchable list/map, validated editor, detail timeline.
-- Coordination: active/cleared views, methodology, notes, window settings.
-- Citizen: public browsing, reports, optional geolocation, tracking and admin lifecycle.
-- CityMap/UI: reusable map, badges, progress, filters, tables, export.
+Conflicts are recomputed from projects in the client. Staff changes snapshot relevant old/new alerts. Acknowledgment does not suppress a currently detected conflict. Cleared means a captured pair no longer meets the current rules, which can reflect schedule, completion, deletion or rule changes. Server authorization never depends on a client conflict score.
 
-Custom CSS uses navy, blue, teal, compact typography, responsive grids, explicit focus rings and reduced-motion rules. Maps use OSM attribution. The project list is a usable alternative when tile networking fails.
+## Local demo
+
+Without backend configuration, the user may explicitly enter a local demo. It stores versioned data under `civicsync-demo-v1`, uses fictional records and simulated roles, and never writes to Supabase. This path retains the hackathon walkthrough. The backend starts empty and only an administrator's atomic explicit import adds sample projects and roads; demo complaints are not uploaded.
+
+## Verification and remaining infrastructure
+
+Vitest covers application logic and provider-request handling. PGlite runs the actual SQL migrations and tests RLS, escalation denial, report privacy, department scope, status transitions, server history, concurrency and rollback. Playwright tests the unconfigured login entry and explicit demo workflows.
+
+Real hosted email confirmation, reset delivery and multi-browser access must be checked after the owner provisions Supabase, applies both migrations and configures SMTP/redirect URLs. See AUTH_SETUP.md. Future scaling work includes pagination, spatial indexes, private object storage, realtime refresh, canonical road data and server-side conflict materialization.

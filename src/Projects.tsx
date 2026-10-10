@@ -2,8 +2,7 @@
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Plus, ArrowLeft, Pencil, MapPin, Trash2 } from "lucide-react";
 import { useStore } from "./store";
-import { departments, statuses, types, type Project } from "./model";
-import { roads } from "./seed";
+import { statuses, types, type Project } from "./model";
 import { detectConflicts, validateProject } from "./engine";
 import { CityMap } from "./CityMap";
 import {
@@ -22,7 +21,7 @@ export function Projects({ map = false }: { map?: boolean }) {
       <PageHeading
         eyebrow={map ? "GEOSPATIAL VIEW" : "CITY WORKS REGISTER"}
         title={map ? "One city. One map." : "Projects, with a purpose."}
-        description="Explore illustrative public works and the people accountable for them."
+        description="Explore public works and the people accountable for them. Sample projects are explicitly labeled."
         action={
           role !== "Citizen" && (
             <Link className="button" to="/projects/new">
@@ -39,7 +38,7 @@ export function Projects({ map = false }: { map?: boolean }) {
             projects={filtered}
             conflicted={detectConflicts(
               data.projects,
-              roads,
+              data.roads,
               data.windowDays,
             ).flatMap((c) => c.projectIds)}
           />
@@ -48,7 +47,7 @@ export function Projects({ map = false }: { map?: boolean }) {
       <section className="card">
         <div className="card-heading">
           <h2>{filtered.length} projects</h2>
-          <small>Illustrative data · Coimbatore</small>
+          <small>Coimbatore project register</small>
         </div>
         <ProjectTable projects={filtered} />
       </section>
@@ -57,7 +56,7 @@ export function Projects({ map = false }: { map?: boolean }) {
 }
 export function ProjectDetail() {
   const { id } = useParams();
-  const { data, role, commit } = useStore();
+  const { data, role, commit, isDemo, department, saving } = useStore();
   const navigate = useNavigate();
   const p = data.projects.find((x) => x.id === id);
   if (!p)
@@ -66,13 +65,16 @@ export function ProjectDetail() {
         Project not found. <Link to="/projects">Return to projects</Link>
       </Empty>
     );
-  const remove = () => {
+  const remove = async () => {
     if (
       role === "City Administrator" &&
       window.confirm(
         `Delete ${p.name}? This removes its timeline. Citizen reports will retain their references.`,
       ) &&
-      commit({ ...data, projects: data.projects.filter((x) => x.id !== p.id) })
+      (await commit({
+        ...data,
+        projects: data.projects.filter((x) => x.id !== p.id),
+      }))
     )
       navigate("/projects");
   };
@@ -83,11 +85,14 @@ export function ProjectDetail() {
         All projects
       </Link>
       <PageHeading
-        eyebrow={`${p.id} / ILLUSTRATIVE PROJECT`}
+        eyebrow={`${p.id} / ${p.isIllustrative ? "ILLUSTRATIVE PROJECT" : "PROJECT RECORD"}`}
         title={p.name}
         description={p.roadName}
         action={
-          role !== "Citizen" && (
+          role !== "Citizen" &&
+          (isDemo ||
+            role === "City Administrator" ||
+            department === p.department) && (
             <Link className="button" to={`/projects/${p.id}/edit`}>
               <Pencil size={16} />
               Edit project
@@ -132,7 +137,11 @@ export function ProjectDetail() {
             {p.updates.at(-1)?.description || "No updates recorded."}
           </p>
           {role === "City Administrator" && (
-            <button className="button danger" onClick={remove}>
+            <button
+              className="button danger"
+              disabled={saving}
+              onClick={remove}
+            >
               <Trash2 size={16} />
               Delete project
             </button>
@@ -161,7 +170,9 @@ export function ProjectDetail() {
 }
 export function ProjectForm() {
   const { id } = useParams();
-  const { data, role, commit } = useStore();
+  const { data, role, commit, isDemo, department, saving } = useStore();
+  const roads = data.roads,
+    departments = data.departments.map((d) => d.name);
   const navigate = useNavigate();
   const existing = data.projects.find((p) => p.id === id);
   const [project, setProject] = useState<Project>(() =>
@@ -170,19 +181,23 @@ export function ProjectForm() {
       : {
           id: `CS-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
           name: "",
-          department: departments[0],
+          department:
+            !isDemo && role === "Department Officer"
+              ? department || departments[0] || ""
+              : departments[0] || "",
           contractor: "",
           authority: "",
           description: "",
-          roadId: roads[0].id,
-          roadName: roads[0].name,
-          lat: roads[0].coordinates[0][0],
-          lng: roads[0].coordinates[0][1],
-          start: "2026-10-15",
-          end: "2026-10-18",
+          roadId: roads[0]?.id || "",
+          roadName: roads[0]?.name || "",
+          lat: roads[0]?.coordinates[0]?.[0],
+          lng: roads[0]?.coordinates[0]?.[1],
+          start: isDemo ? "2026-10-15" : new Date().toISOString().slice(0, 10),
+          end: isDemo ? "2026-10-18" : new Date().toISOString().slice(0, 10),
           status: "Planned",
           type: "Pipeline",
           excavation: true,
+          isIllustrative: isDemo,
           progress: 0,
           delayReason: "",
           updates: [],
@@ -195,12 +210,22 @@ export function ProjectForm() {
   if (role === "Citizen")
     return (
       <Empty>
-        Project editing is available to demo officers and administrators. Use
-        the demo role switcher.
+        {isDemo
+          ? "Project editing is available to demo officers and administrators. Use the demo role switcher."
+          : "Only authorized department officers and administrators can edit projects."}
       </Empty>
     );
   if (id && !existing) return <Empty>Project not found.</Empty>;
-  const submit = (e: FormEvent) => {
+  if (
+    !isDemo &&
+    role === "Department Officer" &&
+    existing &&
+    existing.department !== department
+  )
+    return (
+      <Empty>You can edit only projects assigned to your department.</Empty>
+    );
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     const issues = validateProject(project);
     setErrors(issues);
@@ -232,7 +257,9 @@ export function ProjectForm() {
           id: crypto.randomUUID(),
           at: new Date().toISOString(),
           department: project.department,
-          description: changes || "Project details updated.",
+          description: isDemo
+            ? changes || "Project details updated."
+            : update.trim(),
         },
       ],
     };
@@ -242,11 +269,11 @@ export function ProjectForm() {
         ? data.projects.map((p) => (p.id === id ? saved : p))
         : [...data.projects, saved],
     };
-    if (commit(next)) navigate(`/projects/${saved.id}`);
+    if (await commit(next)) navigate(`/projects/${saved.id}`);
   };
   const preview = detectConflicts(
     [...data.projects.filter((p) => p.id !== project.id), project],
-    roads,
+    data.roads,
     data.windowDays,
   ).filter((c) => c.projectIds.includes(project.id));
   return (
@@ -283,6 +310,7 @@ export function ProjectForm() {
             <label>
               Department
               <select
+                disabled={!isDemo && role === "Department Officer"}
                 aria-label="Department"
                 value={project.department}
                 onChange={(e) => change("department", e.target.value)}
@@ -433,6 +461,14 @@ export function ProjectForm() {
           <label className="checkbox">
             <input
               type="checkbox"
+              checked={project.isIllustrative || false}
+              onChange={(e) => change("isIllustrative", e.target.checked)}
+            />
+            Label as illustrative/sample project
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
               checked={project.excavation}
               onChange={(e) => change("excavation", e.target.checked)}
             />
@@ -485,7 +521,7 @@ export function ProjectForm() {
             />
           </label>
           <div className="actions">
-            <button className="button" type="submit">
+            <button className="button" disabled={saving} type="submit">
               Save project
             </button>
             <Link
@@ -516,8 +552,8 @@ export function ProjectForm() {
             </div>
           ))}
           <p className="muted">
-            Road segments are verified within this illustrative dataset, not by
-            a municipal authority.
+            Road identity comes from the stored catalog. Illustrative segments
+            are sample geometry, not municipal GIS verification.
           </p>
         </aside>
       </form>

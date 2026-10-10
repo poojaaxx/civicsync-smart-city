@@ -2,115 +2,133 @@
 
 **One City. One Map. Smarter Public Works.**
 
-An operational public works coordination demo for **BITS AND BYTES 2026**, IIITDM Kancheepuram, CivicTech domain.
+Public works coordination for **BITS AND BYTES 2026**, IIITDM Kancheepuram, CivicTech. Official problem statement supplied in the brief: **“Improving Transparency and Coordination in Public Works Projects.”**
 
-## Problem and solution
+CivicSync gives residents project visibility and report tracking, and helps departments detect overlapping excavation before schedules create repeated disruption.
 
-Official problem statement supplied in the project brief: **“Improving Transparency and Coordination in Public Works Projects.”**
+## Account access
 
-Residents need visibility into construction, deadlines, and accountability. Departments need to detect overlapping excavation and avoid repeated disruption. CivicSync combines a city project register, interactive map, explainable scheduling engine, public timelines, and trackable citizen reports.
+CivicSync now includes **Supabase email/password authentication and a shared PostgreSQL backend**. Start with [AUTH_SETUP.md](AUTH_SETUP.md) to activate it in your Supabase project. Hosted accounts and email delivery require that setup; no live tenant is preconfigured.
 
-**All projects, contractors, road-segment verification, and complaints are illustrative. Nothing is submitted to a municipality.** Data persists in local browser storage on the same origin. This is not a shared government database or authenticated production service.
+- Citizen signup with email confirmation, sign-in, sign-out and password reset.
+- New accounts always start as Citizens. Signup metadata cannot assign privileges.
+- Administrators assign officer departments and administrator access from the Accounts screen.
+- Officers can edit only projects in their assigned department and manage linked reports.
+- Citizens can read only their own reports. Knowing someone else's reference ID grants no access.
+- Database RLS governs reads. Direct client writes are denied; authenticated transactional functions enforce mutations, validation and permissions.
+- Shared changes persist across browsers and devices. Refresh data or reload to see another user's latest changes.
 
-## Run locally
+| Role               | Permissions                                                                                                                   |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Citizen            | Browse works, submit reports, track own reports                                                                               |
+| Department Officer | Citizen abilities, edit assigned department projects, review coordination involving that department, update linked complaints |
+| City Administrator | Manage all projects/reports, delete projects, change coordination window, assign account access                               |
 
-Requires Node.js 22.12+ (verified on Node 24) and npm.
+The login screen is the default entry. Without Supabase configuration, account actions are disabled and **Explore local demo** is available explicitly. The demo is isolated browser-local sample data and does not create accounts. Once Supabase is configured, the demo role switcher is not available.
+
+## Install and run
+
+Node.js 22.12+ (verified on Node 24), npm:
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. The first visit loads ten fictional Coimbatore projects, three deliberate conflicts, and one report. No API keys, paid APIs, or environment variables are required.
+Open http://127.0.0.1:5173. For real access, copy `.env.example` to ignored `.env.local`, enter your Supabase URL and **public publishable key**, run both SQL migrations, configure auth URLs, and restart Vite. See [AUTH_SETUP.md](AUTH_SETUP.md) for the exact steps, including bootstrapping your first administrator.
+
+Never use service-role/secret keys or database passwords in frontend variables. A configuration guard rejects privileged keys before Vite builds a bundle. Passwords are handled by Supabase Auth, not stored by CivicSync.
+
+## Features
+
+- Computed operations dashboard: project/status/conflict/report counts, department and status charts, monthly schedule activity, severity, attention list, upcoming work, recent updates and JSON export.
+- Interactive OpenStreetMap with stored project markers, stored road lines, status colors, conflict markers, popups and project detail links. Tile failure leaves the project list usable.
+- Project CRUD, validation, dates, coordinates, department/contractor/authority, progress, delay reasons and append-only shared project history.
+- Explainable conflict detection, live schedule previews, coordination notes, manual acknowledgments, configurable windows and cleared alert history.
+- Citizen search, optional nearby search, report categories, photograph attachment, reference tracking and sequential lifecycle: Submitted → Under Review → In Progress → Resolved.
+- Responsive layout, keyboard focus, skip navigation, reduced-motion support, loading/error/empty states and explicit failure feedback.
+
+The optional sample portfolio contains ten fictional Coimbatore projects, three deliberate conflicts and one local demo report. Shared databases start empty; an administrator can explicitly import the fictional projects and illustrative road segments from Accounts. Projects and road geometry in the sample portfolio are not authoritative municipal records. Reports are not automatically transmitted to a municipality.
+
+## Supabase and demonstration data
+
+| Feature                                  | Connected mode                                                                                           |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Accounts and permissions                 | Supabase Auth and protected profiles                                                                     |
+| Projects and public timelines            | PostgreSQL projects and project_updates; validated CRUD                                                  |
+| Departments and road geometry            | PostgreSQL catalogs, with administrator add forms                                                        |
+| Dashboard, map, filters and exports      | Derived from the authorized database snapshot                                                            |
+| Citizen reports and tracking             | Owned database rows with protected photographs and server status history                                 |
+| Coordination notes, reviews and settings | Database records; conflict detection remains the existing client-side engine using stored projects/roads |
+| Optional fictional portfolio             | Explicit admin import; every sample project/road labeled illustrative                                    |
+| Unconfigured local demo                  | Browser-only sample data, isolated from hosted accounts                                                  |
+
+Map tiles come from OpenStreetMap, not Supabase. There is no automatic municipal feed or realtime subscription. Refresh data reloads other users' changes. See [AUTH_SETUP.md](AUTH_SETUP.md) for migration order, administrator bootstrap and hosted verification.
+
+## Conflict methodology
+
+The pure engine compares pairs of noncompleted projects with valid inclusive date ranges. Matching verified stored road-segment IDs are preferred. Different nonempty segment IDs do not match through proximity. Without IDs, matching normalized road names plus Haversine distance ≤150 m produce only an uncertain Low location-review alert.
+
+- **Critical:** overlapping excavation by different departments on a matching verified segment.
+- **High:** repeated cross-department excavation within the window, or potentially duplicate work types.
+- **Medium:** other verified schedule overlaps.
+- **Low:** uncertain location candidates.
+
+The window supports 0/3/7/14/30 days. A shared endpoint counts as overlap. Each pair has a stable ID, explanation, evidence and recommendation. Matching work types suggest potential duplication, not proven waste. Invalid dates and self-comparisons are skipped defensively.
+
+Manual resolution records an acknowledgment without suppressing detection. Previously captured alerts clear when current rules no longer detect them, including schedule, completion, deletion or window changes. This is not certification of engineering safety or completed joint work. Computation is O(n²), appropriate for this portfolio.
+
+## Architecture and stack
+
+React, TypeScript, Vite, React Router, Lucide, Recharts, Leaflet/React Leaflet, OpenStreetMap and custom responsive CSS. Supabase supplies Auth and PostgreSQL. Vitest/Testing Library test application behavior; PGlite executes the SQL migration and permission tests against embedded PostgreSQL; Playwright exercises browser workflows.
+
+- `src/auth.tsx`, `supabase.ts`, `auth-config.ts`: account/session lifecycle and public configuration.
+- `src/cloud.ts`: shared reads and record-level diff operations.
+- `src/store.tsx`: asynchronous saves, conflict snapshots and refresh/error handling.
+- `src/repository.ts`: isolated local demo persistence.
+- `src/engine.ts`: pure conflict/validation logic.
+- `supabase/migrations/`: schema, RLS and authenticated transactional write functions.
+- Feature screens: dashboard, projects, map, coordination, citizens and Accounts.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the trust boundaries and mutation flow.
+
+## Verification
 
 ```sh
 npm run typecheck
 npm run lint
+npm run format:check
 npm test
 npm run build
-npm run preview
 npm run test:e2e
 ```
 
-Browser tests use installed Microsoft Edge in headless mode. On other operating systems, install Playwright Chromium (`npx playwright install chromium`) and remove `channel: 'msedge'` from `playwright.config.ts`. The suite starts Vite automatically if needed. Screenshots are written to `test-results/`.
+Browser tests use installed Microsoft Edge and start an isolated Vite server on port 5180 with blank Supabase variables, so they do not use or mutate your configured project. On other systems, install Playwright Chromium and remove `channel: 'msedge'` from `playwright.config.ts`. To test an already-running preview, set `CIVICSYNC_TEST_URL` to its origin.
 
-## Features
+Tests cover conflict edge cases, persistence, citizen interactions, auth requests/errors, configuration guards, mutation diffs, PostgreSQL role escalation denial, RLS report privacy, department restrictions, status validation, stale writes and atomic rollback. Mocked auth form tests do **not** demonstrate live email delivery. Complete the two-account hosted checklist in AUTH_SETUP.md after configuring your tenant.
 
-- Dashboard: computed project counts, active and delayed work, live conflicts, cleared alerts, citizen reports, department/status/activity/severity charts, recent updates, upcoming construction, and attention list.
-- Interactive OpenStreetMap with stored project coordinates, illustrative road polylines, status colors, conflict markers, popups, and project detail links. Project lists remain usable when tiles are unavailable.
-- Project creation, editing, schedule and progress changes, required delay reasons, deletion confirmation, filters, unique IDs, and chronological public history.
-- Deterministic coordination checks with live previews, configurable 0/3/7/14/30-day windows, explanations, recommendations, notes, acknowledgments, and cleared history.
-- Citizen project search, optional nearby search (approximately 5 km), complaints with image attachments, generated tracking references, and status history.
-- Sequential complaint lifecycle: Submitted → Under Review → In Progress → Resolved.
-- Demo roles: citizens browse/report/track; officers edit projects and coordinate/report updates; administrators additionally delete projects and access the full operations interface. These are interface permissions, **not security**.
-- Responsive sidebar, keyboard focus, skip navigation, reduced-motion support, empty states, validation, error boundary, and explicit storage failure messages.
-- JSON export from the dashboard for a portable project/report snapshot.
+## Deployment
 
-## Architecture and technologies
+Vercel: import the existing GitHub repository; framework Vite; build `npm run build`; output `dist`; Node 22.12+ / 24. Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in Vercel before rebuilding. `vercel.json` supports direct SPA route loads, including `/auth/reset`.
 
-React + TypeScript + Vite; React Router for routes; Lucide React for icons; Recharts for charts; React Leaflet + Leaflet with OpenStreetMap tiles. Custom responsive CSS implements the design system (Tailwind is not used).
+Configure Supabase redirect URLs for the deployed origin, verify email confirmation/reset and the two-account permission scenarios, then record the public URL. No hosted deployment or live Supabase connection is claimed by this repository alone.
 
-`src/model.ts` defines relationships; `seed.ts` provides fictional records; `engine.ts` holds pure coordination rules and validation; `repository.ts` provides the `DataRepository` boundary; `store.tsx` manages transactional saves and snapshots detected conflicts. Feature modules render dashboard, projects, coordination, and citizen workflows. See [ARCHITECTURE.md](ARCHITECTURE.md).
+## Limits and next steps
 
-## Conflict methodology
+The shared database is functional once configured, but no external municipal integration, email notification workflow, realtime subscription, production GIS import or cost-savings measurement is implemented. Conflict computation still runs client-side from project records; database authorization does not depend on its alerts. The optional sample road catalog is illustrative; connected mode reads its catalog from Supabase.
 
-1. Validate strict ISO dates; exclude completed records and self-comparisons.
-2. Match verified road segment IDs first. Different nonempty segment IDs never match through proximity.
-3. Without authoritative IDs, matching normalized road names **and** Haversine distance ≤150 m produce only a Low location-review alert. Proximity alone proves nothing.
-4. Compare inclusive dates. A shared endpoint is an overlap. Gap is the difference in UTC calendar days between the later start and earlier finish.
-5. Critical: overlapping excavation by different departments on a verified segment. High: repeated excavation across departments within the coordination window, or potentially duplicate work types. Medium: other verified overlaps. Low: unverified location candidates.
-6. One stable alert per pair, with an additional duplicate-work explanation if appropriate. Matching work types indicate potential duplication, not proven waste.
-7. Recompute on edits and window changes. Manual resolution records an acknowledgment but keeps an active scheduling clash visible. Cleared records are previously captured alerts no longer meeting the rules. Clearance can follow schedule, completion, deletion, or rule changes; it is not proof of a physically completed joint plan.
+Photographs are bounded data URLs inside RLS-protected report rows. This is suitable for modest initial usage; migrate to private object storage/signed URLs at scale. An atomic RLS-protected snapshot loads the full authorized portfolio without REST row-limit truncation; introduce pagination before large deployments. Local demo storage is separate per origin and is not synchronized with Supabase. SQL migrations and schema changes require trusted project administration. Configure SMTP, rate limits, HTTPS, retention, backups and operational monitoring before a public launch.
 
-A verified segment can match without coordinates. Unverified locations with missing/invalid coordinates do not match. Invalid scheduling inputs are rejected in the editor and ignored defensively by the engine. Runtime is O(n²), suitable for this demo portfolio.
+## Team and submission
 
-## Persistence, environment and future Supabase adapter
+Assign actual names to platform/engine, frontend/UX, quality/deployment and presentation responsibilities. No team identities are invented.
 
-The `civicsync-demo-v1` localStorage key holds versioned JSON. A failed storage write leaves the previous state intact. Photographs accept JPEG/PNG/WebP up to 1 MB and are stored as data URLs, subject to browser quotas. Avoid private or sensitive information.
+[DEMO_SCRIPT.md](DEMO_SCRIPT.md) provides a 3–4 minute walkthrough. [SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md) tracks remaining setup, deployment and recording. A narrated demo video is not included.
 
-`.env.example` documents that this release needs no variables. Adding Supabase credentials **does not enable a backend**. Before a shared production deployment, replace the repository boundary with async server operations, authenticated sessions, authoritative server validation, row-level policies for assigned departments and administrators, private object storage, migrations, and server-side role enforcement. Never place service-role credentials in `VITE_*` variables. The demo role switcher must not authorize production writes.
+This implementation uses AI coding assistance. Review the event's actual eligibility and disclosure rules and describe assistance honestly; organizer approval is not claimed.
 
-To reset the demo, use browser developer tools → Application → Local Storage → delete `civicsync-demo-v1`, then reload. Export first if data is needed. Different ports/domains use independent storage; clearing browser data removes the demo records. Reload reads persisted state; simultaneous tabs do not synchronize automatically.
+## Libraries and external services
 
-## Deployment to Vercel
+React, Vite, TypeScript, React Router, Lucide, Recharts, Leaflet, React Leaflet, Supabase JS, Vitest, Testing Library, PGlite, Playwright, ESLint and Prettier. Review installed package licenses before redistribution. [OpenStreetMap attribution](https://www.openstreetmap.org/copyright) is displayed on the map. Optional Google Fonts use system-font fallbacks. Respect map-tile and hosted-service policies and account limits.
 
-The production artifact is `dist/`. `vercel.json` includes SPA rewrites so detail pages work on refresh.
-
-1. Push this folder to your GitHub repository (exclude node_modules, caches, test output, and secrets).
-2. Sign into Vercel with your own account and select **Add New → Project → Import Git Repository**.
-3. Select Vite; build command `npm run build`; output directory `dist`; use Node 22.12+ / 24. No environment variables are needed.
-4. Deploy and open the resulting public URL.
-5. Verify a direct `/coordination` load, map tiles, project creation and reload, then report submission and tracking on that same origin.
-
-No public deployment is claimed. Account authentication and a verified public URL are still required. For Netlify use the same build/output settings plus an SPA redirect `/* /index.html 200` in its redirect configuration.
-
-## Testing
-
-Vitest tests cover schedule overlap, non-overlap, unrelated roads, repeated excavation, self-comparison, invalid dates, missing coordinates, severity, duplicate work, stable IDs, Haversine distance, validation, persistence, corrupt storage, quota errors, and citizen submission/tracking. React Testing Library exercises report interactions. Playwright covers project creation, automatic clashes, acknowledgment vs clearance, rescheduling, complaint status persistence, map loading, route refresh, and mobile layout/navigation.
-
-See [SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md) for executed checks and remaining submission steps. A build passing is not a claim of production-grade security or municipal integration.
-
-## Suggested team responsibilities
-
-Assign actual member names before submission; none are invented here.
-
-- Platform/engine: data model, scheduling rules, backend roadmap.
-- Frontend/UX: map, responsive screens, accessible workflows.
-- Quality/deployment: test scenarios, deployment verification, demo reset.
-- Product/presentation: problem framing, impact, video recording, submission.
-
-See [DEMO_SCRIPT.md](DEMO_SCRIPT.md) for a reproducible 3–4 minute presentation.
-
-## Limitations and future work
-
-No real authentication, shared backend, municipality integration, notifications, measured cost savings, or engineering certification. Seed road geometry is approximate and illustrative, not cadastral/GIS authority data. Planned dates are a fixed October–December 2026 scenario; status is explicitly reported, not inferred from today. Monthly activity includes any project whose stored schedule intersects the month. Tile and optional font loading need internet; fallback fonts and project lists remain available. Local storage is not suitable for sensitive citizen data. The app is not an offline PWA. Production-scale spatial indexing, verified road geometry, multi-tab synchronization, audited workflow permissions, multilingual content, and accessible table alternatives for every chart are future improvements.
-
-## Open-source and external services
-
-React (MIT), Vite (MIT), TypeScript (Apache-2.0), React Router (MIT), Lucide (ISC), Recharts (MIT), Leaflet (BSD-2-Clause), React Leaflet (Hippocratic-2.1), Vitest (MIT), Testing Library (MIT), Playwright (Apache-2.0), ESLint (MIT). Check installed package licenses before redistribution. [OpenStreetMap](https://www.openstreetmap.org/copyright) data and attribution, public OSM tile service; [Google Fonts](https://fonts.google.com/) for DM Sans and Manrope with system fallbacks. Respect external service policies for production traffic.
-
-Framework setup follows the official [Vite guide](https://vite.dev/guide/) and [React Leaflet documentation](https://react-leaflet.js.org/). This repository contains no generated proprietary media and no paid API requirement.
-
-## Disclosure
-
-This implementation was produced with AI coding assistance. Review the event's actual submission and AI-disclosure rules, add team attribution, and describe assistance honestly. No claim is made that the organizers have approved this implementation or its eligibility.
+References: [Vite](https://vite.dev/guide/), [React Leaflet](https://react-leaflet.js.org/), [Supabase authentication](https://supabase.com/docs/guides/auth/quickstarts/react), [Supabase RLS](https://supabase.com/docs/guides/database/postgres/row-level-security).

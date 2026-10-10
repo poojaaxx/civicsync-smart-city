@@ -1,8 +1,9 @@
-﻿import { useState, type ReactNode } from "react";
+﻿import { useStore } from "./store";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, Search } from "lucide-react";
 import type { Project } from "./model";
-import { departments, statuses, types } from "./model";
+import { statuses, types } from "./model";
 export function Badge({ children }: { children: ReactNode }) {
   return (
     <span
@@ -70,7 +71,10 @@ export function ProjectTable({ projects }: { projects: Project[] }) {
                 <Link className="project-title" to={`/projects/${p.id}`}>
                   {p.name}
                 </Link>
-                <small>{p.roadName}</small>
+                <small>
+                  {p.roadName}
+                  {p.isIllustrative ? " - Illustrative" : ""}
+                </small>
               </td>
               <td>{p.department}</td>
               <td>
@@ -95,6 +99,8 @@ export function ProjectTable({ projects }: { projects: Project[] }) {
   );
 }
 export function useFilters(projects: Project[]) {
+  const { data } = useStore();
+  const departments = data.departments.map((d) => d.name);
   const [search, setSearch] = useState(""),
     [status, setStatus] = useState(""),
     [department, setDepartment] = useState(""),
