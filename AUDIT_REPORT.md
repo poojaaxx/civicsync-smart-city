@@ -61,3 +61,7 @@ Report photographs are restricted in the UI to JPEG/PNG/WebP at 1 MB and validat
 5. Record the three-minute workflow in DEMO_SCRIPT.md, add the finished 2-5 minute video to the repository and submit the website/source/video links. Add team details and decide on a repository license if required by the event.
 
 There is no automatic municipal complaint delivery, authoritative GIS ingestion, realtime subscription, certified cost-savings calculation or finished video. The genuine client-side conflict engine uses stored project/road data; browser-only samples remain explicitly labeled and isolated. No legitimate production records or existing users were modified during this audit.
+
+## Post-push production verification
+
+PASS: audit code commit `b82b7fc847fd2ebefc9e6094d40ea31850326711` was pushed to main and verified on the remote. Vercel reported a successful Production deployment (GitHub deployment ID `6980480046`). The public site served `/assets/index-B5i0879y.js`, matching the audited local build. At 2026-10-10 12:07 UTC, the seven logged-out routes, Auth availability, anonymous snapshot denial and mobile-overflow check passed again with no uncaught errors or failed same-origin assets. This frontend deployment does not apply Supabase migration 003 or verify signed-in workflows.
